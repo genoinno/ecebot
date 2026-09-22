@@ -116,7 +116,7 @@ class AgreementView(discord.ui.View):
 class BorrowingForm(ui.Modal, title="Borrowing Form"):
     name = ui.TextInput(
         label="Fullname", 
-        placeholder="Enter your fullname"
+        placeholder="Enter your fullname",
     )
     phone = ui.TextInput(
         label="Phone Number",
@@ -129,7 +129,17 @@ class BorrowingForm(ui.Modal, title="Borrowing Form"):
 
     def __init__(self, **kwargs):
         self.book = kwargs.pop("selected_book")
+        default_name = kwargs.pop("default_name", None)
+        default_phone = kwargs.pop("default_phone", None)
+        default_kelas = kwargs.pop("default_kelas", None)
         super().__init__(**kwargs)
+        if default_name:
+            self.name.default = default_name
+        if default_phone:
+            self.phone.default = default_phone
+        if default_kelas:
+            self.kelas.default = default_kelas
+
         self.add_item(
             ui.TextInput(label="Book", required=False, default=self.book.title)
         )

@@ -113,14 +113,23 @@ class BorrowingRecordDB(Base):
         await session.commit()
 
     @staticmethod
+    async def get_latest_borrowed_by_user_id(session, user_id):
+        result = await session.execute(
+            select(BorrowingRecordDB)
+            .order_by(desc(BorrowingRecordDB.borrow_date))
+            .where(BorrowingRecordDB.user_id == user_id)
+        )
+        record = (result.scalars().all())[0]
+        if record and record.status in [BorrowingStatus.BORROWING, BorrowingStatus.PENDING]:
+            return record
+        return None
+
+    @staticmethod
     async def get_latest_by_user_id(session, user_id):
         result = await session.execute(
             select(BorrowingRecordDB)
             .order_by(desc(BorrowingRecordDB.borrow_date))
             .where(BorrowingRecordDB.user_id == user_id)
-            .limit(1)
         )
-        record = result.scalar_one_or_none()
-        if record and record.status in [BorrowingStatus.BORROWING, BorrowingStatus.PENDING]:
-            return record
-        return None
+        record = (result.scalars().all())[0]
+        return record

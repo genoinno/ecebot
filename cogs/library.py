@@ -141,8 +141,13 @@ class Library(commands.Cog):
                 attachments=[],
                 view=None,
             )
-            
-            await inter.response.send_modal(BorrowingForm(timeout=120, selected_book=book))
+
+            if has_role:
+                name, phonenumber, _class = (await BorrowingRecordDB.get_latest_by_user_id(session, ctx.author.id)).remarks.split(":")
+                await inter.response.send_modal(BorrowingForm(timeout=120, selected_book=book, default_name=name, default_phone=phonenumber, default_kelas=_class))
+            else:
+                await inter.response.send_modal(BorrowingForm(timeout=120, selected_book=book))
+
 
             inter: discord.Interaction = await self.bot.wait_for("interaction", check=modal_check)
             name = inter.data["components"][0]["components"][0]["value"]
@@ -150,7 +155,6 @@ class Library(commands.Cog):
             kelas = inter.data["components"][2]["components"][0]["value"]
             renewed_date = datetime.datetime.now() + datetime.timedelta(days=7)
             await inter.response.send_message(f"`( ╹ -╹)? Hmm?` *{book.title}*? " + random.choice(MESSAGE_SPLASH), ephemeral=True)
-
            
             await BookDB.borrow(session, book.isbn)
             created_record = await BorrowingRecordDB.create(
@@ -194,7 +198,7 @@ class Library(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.default)
     async def accept(self, ctx: commands.Context, member: discord.Member):
         async with AsyncSessionLocal() as session:
-            record = await BorrowingRecordDB.get_latest_by_user_id(session, member.id)
+            record = await BorrowingRecordDB.get_latest_borrowed_by_user_id(session, member.id)
             
             if not record or not record.status == BorrowingStatus.PENDING:
                 return await ctx.send("Record does not exist or cannot be approved!")
@@ -251,7 +255,7 @@ class Library(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.default)
     async def denied(self, ctx: commands.Context, member: discord.Member):
         async with AsyncSessionLocal() as session:
-            record = await BorrowingRecordDB.get_latest_by_user_id(session, member.id)
+            record = await BorrowingRecordDB.get_latest_borrowed_by_user_id(session, member.id)
 
             if not record or not record.status == BorrowingStatus.PENDING:
                 return await ctx.send("Record does not exist or cannot be denied!")
