@@ -198,7 +198,7 @@ class Library(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.default)
     async def accept(self, ctx: commands.Context, member: discord.Member):
         async with AsyncSessionLocal() as session:
-            record = await BorrowingRecordDB.get_latest_borrowed_by_user_id(session, member.id)
+            record = await BorrowingRecordDB.current_borrow(session, member.id)
             
             if not record or not record.status == BorrowingStatus.PENDING:
                 return await ctx.send("Record does not exist or cannot be approved!")
@@ -255,7 +255,7 @@ class Library(commands.Cog):
     @commands.cooldown(1, 60, commands.BucketType.default)
     async def denied(self, ctx: commands.Context, member: discord.Member):
         async with AsyncSessionLocal() as session:
-            record = await BorrowingRecordDB.get_latest_borrowed_by_user_id(session, member.id)
+            record = await BorrowingRecordDB.current_borrow(session, member.id)
 
             if not record or not record.status == BorrowingStatus.PENDING:
                 return await ctx.send("Record does not exist or cannot be denied!")

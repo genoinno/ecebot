@@ -113,7 +113,7 @@ class BorrowingRecordDB(Base):
         await session.commit()
 
     @staticmethod
-    async def get_latest_borrowed_by_user_id(session, user_id):
+    async def current_borrow(session, user_id):
         result = await session.execute(
             select(BorrowingRecordDB)
             .order_by(desc(BorrowingRecordDB.borrow_date))
