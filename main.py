@@ -26,7 +26,7 @@ import os
 load_dotenv()
 
 tmdb.API_KEY = os.environ["TMDB_API_KEY"]
-bot = commands.Bot(command_prefix="ec!", intents=discord.Intents.all())
+bot = commands.Bot(command_prefix=commands.when_mentioned_or("ec!"), intents=discord.Intents.all())
 patron_role: discord.Role = None
 librarian_role: discord.Role = None
 record_channel: discord.TextChannel = None
