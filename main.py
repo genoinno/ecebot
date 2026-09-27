@@ -6,7 +6,7 @@ import datetime
 import tmdbsimple as tmdb
 import jishaku
 
-from discord.ext import commands
+from discord.ext import commands, tasks
 from dotenv import load_dotenv
 from models.db import BorrowingRecordDB, BookDB, BorrowingStatus, AsyncSessionLocal, engine, Base
 from models import (
@@ -53,9 +53,57 @@ async def on_ready():
     
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-
-    print("Successfuly fetched books!")
+        
+    if not check_due_records.is_running():
+        check_due_records.start()
     print(f"Logged in as {bot.user}")
+
+@tasks.loop(hours=12)
+async def check_due_records():
+    async with AsyncSessionLocal() as session:
+        not_alerted = await BorrowingRecordDB.get_all_current_not_alerted(session)
+        today = datetime.date.today()
+
+        for record in not_alerted:
+            if not record.due_date:
+                continue
+
+            # Check if 1 day before due date (due_date - today == 1 day)
+            days_until_due = (record.due_date.date() - today).days
+
+            if days_until_due == 1:
+                book = await BookDB.get_by_id(session, record.book_isbn, True)
+                book_title = book.title if book else record.book_isbn
+
+                user = bot.get_user(record.user_id)
+                if not user:
+                    try:
+                        user = await bot.fetch_user(record.user_id)
+                    except Exception:
+                        user = None
+
+                if user:
+                    em = (
+                        discord.Embed(
+                            title="📚 Library Due Date Reminder",
+                            description=(
+                                f"Dear {bot.librarian_role.mention},\n\n"
+                                f"This is a friendly reminder that {user.mention} borrowed book **{book_title}** "
+                                f"is due tomorrow (<t:{int(record.due_date.timestamp())}:D>)!\n\n"
+                                f"Please return it to the Language Room (Ruang Bahasa) or request a renewal."
+                            ),
+                            color=discord.Color.yellow(),
+                            timestamp=datetime.datetime.now(),
+                        )
+                    )
+
+                    if book and hasattr(book, "get_cover_url") and book.get_cover_url("large"):
+                        em.set_thumbnail(url=book.get_cover_url("large"))
+
+                    await bot.record_channel.send(f"{bot.librarian_role.mention} Tolong dianuhkan biar gak anuh apa kali", embed=em, reference=discord.MessageReference(message_id=record.message_id, channel_id=bot.record_channel.id))
+
+                    record.alerted = True
+                    await session.commit()
 
 @bot.event
 async def on_command_error(ctx: commands.Context, error):

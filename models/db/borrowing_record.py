@@ -4,7 +4,7 @@ import datetime
 from .book import BookDB
 from .db import Base
 from dotenv import load_dotenv
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, Text, Enum, desc, insert, select
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, Text, Enum, Boolean, desc, insert, select
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
@@ -33,6 +33,7 @@ class BorrowingRecordDB(Base):
     
     status = Column(Enum(BorrowingStatus), default=BorrowingStatus.BORROWING)
     remarks = Column(Text, nullable=True)
+    alerted = Column(Boolean, default=False)
 
     # user = relationship("User", back_populates="borrow_records")
     book = relationship("BookDB", back_populates="borrow_records")
@@ -133,3 +134,25 @@ class BorrowingRecordDB(Base):
         )
         record = (result.scalars().all())[0]
         return record
+
+    @staticmethod
+    async def get_all_current_borrows(session):
+        result = await session.execute(
+            select(BorrowingRecordDB)
+            .where(BorrowingRecordDB.status == BorrowingStatus.BORROWING)
+        )
+        
+        records = result.scalars().all()
+        return records
+
+    @staticmethod
+    async def get_all_current_not_alerted(session):
+        records = await BorrowingRecordDB.get_all_current_borrows(session)
+        return [record for record in records if record.status == BorrowingStatus.BORROWING and not record.alerted]
+
+    @staticmethod
+    async def mark_alerted(session, id):
+        record = await BorrowingRecordDB.get_by_id(session, id)
+        if record:
+            record.alerted = True
+            await session.commit()
