@@ -13,11 +13,11 @@ load_dotenv()
 BORROWED_DAYS = int(os.environ["BORROWED_DAYS"])
 
 class BorrowingStatus(str, PyEnum):
-    BORROWING       = "borrowing"
-    RETURNED        = "returned"
-    LATE            = "late"
-    PENDING         = "pending"
-    DENIED          = "denied"
+    BORROWING       = "BORROWING"
+    RETURNED        = "RETURNED"
+    LATE            = "LATE"
+    PENDING         = "PENDING"
+    DENIED          = "DENIED"
     
 class BorrowingRecordDB(Base):
     __tablename__ = 'records'
@@ -26,7 +26,7 @@ class BorrowingRecordDB(Base):
     book_isbn = Column(String(15), ForeignKey('books.isbn'), nullable=False)
     message_id = Column(BigInteger, nullable=True)
     
-    borrow_date = Column(DateTime, default=datetime.datetime.now(datetime.timezone.utc))
+    borrow_date = Column(DateTime, default=lambda: datetime.datetime.now())  # WIB local time
     due_date = Column(DateTime, nullable=False)
     # last_renewed_date = Column(DateTime, nullable=True)
     return_date = Column(DateTime, nullable=True)

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 
 from dataclasses import dataclass
 from typing import Literal, Optional, TYPE_CHECKING
@@ -16,10 +17,11 @@ class Identifiers:
 class Book:
     def __init__(self, payload: BookDB):
         self.__payload = payload
-        self.__identifiers = json.loads(payload.identifiers)
-        self._publishers = json.loads(payload.publishers)
-        self._authors =  json.loads(payload.authors)
-        self._cover = json.loads(payload.cover)
+        # JSONB columns are returned as Python dict/list; Text cover as a string.
+        self.__identifiers = payload.identifiers if isinstance(payload.identifiers, dict) else json.loads(payload.identifiers)
+        self._publishers = payload.publishers if isinstance(payload.publishers, list) else json.loads(payload.publishers)
+        self._authors = payload.authors if isinstance(payload.authors, list) else json.loads(payload.authors)
+        self._cover = payload.cover if isinstance(payload.cover, dict) else json.loads(payload.cover)
         
         try:
             print(self.__identifiers)
@@ -72,7 +74,8 @@ class Book:
     def description(self):
         output = self.__payload.description or "*No description provided.*"
         output = output.replace("\\r\\n", "\n").replace("\\n", "\n")
-        output = bytes(output, "utf-8").decode("unicode_escape")
+        # Decode any literal \uXXXX escape sequences without corrupting existing UTF-8 characters
+        output = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), output)
         return output
     
     @property

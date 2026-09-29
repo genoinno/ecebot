@@ -475,25 +475,27 @@ class Library(commands.Cog):
     @commands.command()
     @commands.has_role(LIBRARIAN_ROLE)
     async def backup(self, ctx: commands.Context):
-        cmd = [
-            "mysqldump",
-            "-u", os.environ['MYSQL_USER'],
-            f"-p{os.environ['MYSQL_PASSWORD']}",
-            "ecebot"
-        ]
-        
-        f = rf"backups\{datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")}.sql"
-        
+        timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
+        f = rf"backups\{timestamp}.sql"
+
+        db_url = os.environ.get('DATABASE_URL', '')
+        # Strip the asyncpg-specific parameters - pg_dump uses libpq format
+        pg_url = db_url.replace('postgresql+asyncpg://', 'postgresql://').replace('?pgbouncer=true', '')
+
+        cmd = ["pg_dump", "--no-password", "--clean", "--if-exists", pg_url]
+
         try:
             with open(f, "w", encoding="utf-8") as output_file:
                 subprocess.run(cmd, stdout=output_file, check=True)
             print("Database backup successfully created!")
-            
+            await ctx.author.send(file=discord.File(f))
+            await ctx.send("I have sent a backup for today's current date in your DM!")
+
         except subprocess.CalledProcessError as e:
             print(f"Error during backup execution: {e}")
-
-        await ctx.author.send(file=discord.File(f))
-        await ctx.send("I have sent a backup for today's current date in your DM!")
+            await ctx.send(f"❌ Backup failed. Make sure `pg_dump` is installed and accessible in PATH.")
+        except FileNotFoundError:
+            await ctx.send("❌ `pg_dump` not found. Please install PostgreSQL client tools to enable backups.")
         
 async def setup(bot):
     await bot.add_cog(Library(bot))

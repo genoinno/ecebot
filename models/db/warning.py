@@ -3,7 +3,7 @@ import datetime
 
 from .db import Base
 from dotenv import load_dotenv
-from sqlalchemy import BigInteger, Column, DateTime, Integer, Text, Enum, desc, insert, select
+from sqlalchemy import BigInteger, Column, DateTime, Integer, Text, Enum, Boolean, desc, insert, select
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
@@ -12,8 +12,8 @@ load_dotenv()
 BORROWED_DAYS = int(os.environ["BORROWED_DAYS"])
 
 class WarningType(str, PyEnum):
-    VERBAL      = "verbal"  
-    BLACKLIST   = "blacklist"
+    VERBAL      = "VERBAL"  
+    BLACKLIST   = "BLACKLIST"
     
 class WarningDB(Base):
     __tablename__ = 'warnings'
@@ -22,10 +22,10 @@ class WarningDB(Base):
     librarian_id = Column(BigInteger, nullable=False)
     status = Column(Enum(WarningType), default=WarningType.VERBAL)
     remarks = Column(Text, nullable=True)
-    datetime = Column(DateTime, default=datetime.datetime.now()) 
-    expired_datetime = Column(DateTime, nullable=True, default=None) 
+    datetime = Column(DateTime, default=lambda: datetime.datetime.now())  # WIB local time
+    expired_datetime = Column(DateTime, nullable=True, default=None)
     fine = Column(Integer, nullable=False)
-    expired = Column(Integer)
+    expired = Column(Boolean, default=False)  # was Integer; PostgreSQL strict bool
 
     @staticmethod
     async def get_by_id(session, id):
