@@ -295,13 +295,11 @@ class Library(commands.Cog):
                 return await ctx.send("Aborting...")
             
         async with AsyncSessionLocal() as session:
-            records = await BorrowingRecordDB.get_all_by_patron(session, patron.id)
-            if not records:
-                return await ctx.send("They have not borrowed any book!")
+            record = await BorrowingRecordDB.current_borrow(session, patron.id)
+            if not record or record.status != BorrowingStatus.BORROWING:
+                return await ctx.send(f"{patron.mention} does not have an active borrowed book to renew!")
                 
-            record = records[0]
-            
-            await BorrowingRecordDB.renew(session, record.id)
+            record = await BorrowingRecordDB.renew(session, record.id)
 
             book = await BookDB.get_by_id(session, record.book_isbn, True)
             name, phone_number, kelas = record.remarks.split(":")
@@ -326,11 +324,15 @@ class Library(commands.Cog):
                 .set_image(url="attachment://renewed.png")
                 .set_thumbnail(url=book.get_cover_url("large"))
             )
-            msg = await self.bot.record_channel.fetch_message(record.message_id)
-            await msg.reply(embed=em, file=file)
+            try:
+                msg = await self.bot.record_channel.fetch_message(record.message_id)
+                await msg.reply(embed=em, file=file)
+            except Exception as e:
+                print(f"Could not reply to record message: {e}")
+
             await ctx.send(f"`٩(>ᴗ<)و` I renewed your book!\n{patron.mention} Please come to **Language Room** to confirm your renewal after school and bring **the book**.\nThank you!")
 
-            file = discord.File(
+            file2 = discord.File(
                 build_renewed_receipt_image(
                     book,
                     name,
@@ -340,7 +342,10 @@ class Library(commands.Cog):
                 "renewed.png",
             )
 
-            await patron.send(embed=em, file=file)
+            try:
+                await patron.send(embed=em, file=file2)
+            except discord.Forbidden:
+                pass
 
 
     @commands.command(name="return")
@@ -356,12 +361,10 @@ class Library(commands.Cog):
                 return await ctx.send("Aborting....")
             
         async with AsyncSessionLocal() as session:
-            records = await BorrowingRecordDB.get_all_by_patron(session, patron.id)
-            if not records:
-                return await ctx.send("They have not borrowed any book!")
+            record = await BorrowingRecordDB.current_borrow(session, patron.id)
+            if not record or record.status != BorrowingStatus.BORROWING:
+                return await ctx.send(f"{patron.mention} does not have an active borrowed book to return!")
                 
-            record = records[0]
-            
             book = await BookDB.get_by_id(session, record.book_isbn, True)
             await BorrowingRecordDB.finish(session, record.id)
             await BookDB.borrow(session, book.isbn, True)

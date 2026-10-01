@@ -24,6 +24,7 @@ engine = create_async_engine(
         "prepared_statement_cache_size": 0,
         "statement_cache_size": 0,
         "ssl": "require",
+        "server_settings": {"search_path": "public"},
     }
 )
 Base = declarative_base()

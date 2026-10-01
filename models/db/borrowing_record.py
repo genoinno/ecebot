@@ -4,7 +4,7 @@ import datetime
 from .book import BookDB
 from .db import Base
 from dotenv import load_dotenv
-from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, Text, Enum, Boolean, desc, insert, select
+from sqlalchemy import BigInteger, Column, DateTime, ForeignKey, Integer, String, Text, Enum, Boolean, desc, insert, select, or_
 from sqlalchemy.orm import relationship
 from enum import Enum as PyEnum
 
@@ -97,8 +97,12 @@ class BorrowingRecordDB(Base):
     @staticmethod
     async def renew(session, id):
         record = await BorrowingRecordDB.get_by_id(session, id)
-        record.due_date = record.due_date + datetime.timedelta(days=BORROWED_DAYS)
-        await session.commit()
+        if record:
+            record.due_date = record.due_date + datetime.timedelta(days=BORROWED_DAYS)
+            record.alerted = False  # Reset alerted flag so reminder can trigger for the new due date
+            await session.commit()
+            return record
+        return None
 
     @staticmethod
     async def finish(session, id):
@@ -117,23 +121,22 @@ class BorrowingRecordDB(Base):
     async def current_borrow(session, user_id):
         result = await session.execute(
             select(BorrowingRecordDB)
+            .where(
+                BorrowingRecordDB.user_id == user_id,
+                BorrowingRecordDB.status.in_([BorrowingStatus.BORROWING, BorrowingStatus.PENDING])
+            )
             .order_by(desc(BorrowingRecordDB.borrow_date))
-            .where(BorrowingRecordDB.user_id == user_id)
         )
-        record = (result.scalars().all())[0]
-        if record and record.status in [BorrowingStatus.BORROWING, BorrowingStatus.PENDING]:
-            return record
-        return None
+        return result.scalars().first()
 
     @staticmethod
     async def get_latest_by_user_id(session, user_id):
         result = await session.execute(
             select(BorrowingRecordDB)
-            .order_by(desc(BorrowingRecordDB.borrow_date))
             .where(BorrowingRecordDB.user_id == user_id)
+            .order_by(desc(BorrowingRecordDB.borrow_date))
         )
-        record = (result.scalars().all())[0]
-        return record
+        return result.scalars().first()
 
     @staticmethod
     async def get_all_current_borrows(session):
@@ -145,10 +148,17 @@ class BorrowingRecordDB(Base):
         records = result.scalars().all()
         return records
 
+
     @staticmethod
     async def get_all_current_not_alerted(session):
-        records = await BorrowingRecordDB.get_all_current_borrows(session)
-        return [record for record in records if record.status == BorrowingStatus.BORROWING and not record.alerted]
+        result = await session.execute(
+            select(BorrowingRecordDB)
+            .where(
+                BorrowingRecordDB.status == BorrowingStatus.BORROWING,
+                or_(BorrowingRecordDB.alerted.is_(False), BorrowingRecordDB.alerted.is_(None))
+            )
+        )
+        return result.scalars().all()
 
     @staticmethod
     async def mark_alerted(session, id):
