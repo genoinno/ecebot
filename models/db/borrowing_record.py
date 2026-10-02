@@ -26,7 +26,7 @@ class BorrowingRecordDB(Base):
     book_isbn = Column(String(15), ForeignKey('books.isbn'), nullable=False)
     message_id = Column(BigInteger, nullable=True)
     
-    borrow_date = Column(DateTime, default=lambda: datetime.datetime.now())  # WIB local time
+    borrow_date = Column(DateTime, default=lambda: datetime.datetime.now().replace(microsecond=0))  # WIB local time
     due_date = Column(DateTime, nullable=False)
     # last_renewed_date = Column(DateTime, nullable=True)
     return_date = Column(DateTime, nullable=True)
@@ -83,8 +83,8 @@ class BorrowingRecordDB(Base):
         new_record = BorrowingRecordDB(
             user_id=user_id,
             book_isbn=book_isbn,
-            borrow_date=datetime.datetime.now(),
-            due_date=datetime.datetime.now() + datetime.timedelta(days=BORROWED_DAYS),
+            borrow_date=datetime.datetime.now().replace(microsecond=0),
+            due_date=(datetime.datetime.now() + datetime.timedelta(days=BORROWED_DAYS)).replace(microsecond=0),
             status=BorrowingStatus.PENDING,
             remarks=remarks
         )
@@ -107,7 +107,7 @@ class BorrowingRecordDB(Base):
     @staticmethod
     async def finish(session, id):
         record = await BorrowingRecordDB.get_by_id(session, id)
-        record.return_date = datetime.datetime.now()
+        record.return_date = datetime.datetime.now().replace(microsecond=0)
         record.status = BorrowingStatus.RETURNED
         await session.commit()
 
