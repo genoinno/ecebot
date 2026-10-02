@@ -2,7 +2,7 @@ import json
 
 from .db import Base
 from models.book import Book
-from sqlalchemy import Column, Integer, String, Text, select
+from sqlalchemy import Boolean, Column, Integer, String, Text, select
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 
@@ -12,7 +12,7 @@ class BookDB(Base):
 
     identifiers = Column(JSONB)       # {"Openlib": "...", "ISBN_13": "..."}
 
-    available = Column(Integer)
+    available = Column(Boolean, default=True)
 
     url = Column(String(255))
     emoji = Column(String(10))        # stores an emoji character
@@ -32,7 +32,7 @@ class BookDB(Base):
         book = BookDB(
             isbn=json_payload["isbns"][0],
             identifiers=json_payload["data"]["identifiers"],   # JSONB: pass dict directly
-            available=1,
+            available=True,
             url=json_payload["data"]["url"],
             emoji=emoji,
             publish_date=json_payload["publishDates"][0],
@@ -55,7 +55,7 @@ class BookDB(Base):
     
     @staticmethod
     async def get_allowed_books(session, parse_to_book):
-        books = (await session.execute(select(BookDB).where(BookDB.available == 1))).scalars().all()
+        books = (await session.execute(select(BookDB).where(BookDB.available == True))).scalars().all()
         if parse_to_book:
             return [Book(book) for book in books]
         return books
@@ -72,7 +72,7 @@ class BookDB(Base):
         book: BookDB = await BookDB.get_by_id(session, isbn, False)
 
         if book:
-            book.available = 0 + reverse
+            book.available = reverse
             await session.commit()
             return True
         return False
