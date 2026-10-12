@@ -167,6 +167,7 @@ class General(commands.Cog):
     @commands.command()
     @commands.cooldown(1, 1, commands.BucketType.guild)
     async def meme(self, ctx, *, kw: str = ""):
+        return await ctx.send("Not available at the moment")
         if not kw:
             kw = "english"
 
