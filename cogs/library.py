@@ -326,7 +326,7 @@ class Library(commands.Cog):
             )
             try:
                 msg = await self.bot.record_channel.fetch_message(record.message_id)
-                await msg.reply(embed=em, file=file)
+                renewed_msg = await msg.reply(embed=em, file=file)
             except Exception as e:
                 print(f"Could not reply to record message: {e}")
 
@@ -344,6 +344,7 @@ class Library(commands.Cog):
 
             try:
                 await patron.send(embed=em, file=file2)
+                await BorrowingRecordDB.add_message_id(session, record.id, renewed_msg.id)
             except discord.Forbidden:
                 pass
 
