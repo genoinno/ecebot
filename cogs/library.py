@@ -185,7 +185,7 @@ class Library(commands.Cog):
                 .set_thumbnail(url=book.get_cover_url("large"))
             )
 
-            message = await channel.send(self.bot.librarian_role.mention, embed=em, file=file)
+            message = await channel.send(f"{self.bot.librarian_role.mention} Kalau bot gak emot :white_check_mark: berarti blm di acc yah (ini pesan buat scarameow)", embed=em, file=file)
             await msg.edit(
                 content=f"**`[{step}/{last_step}, Pending]`** Done! `(,,> ᴗ <,,)`\nYour request is being validated by us.\n**We will notify you shortly via DM**"
             )
