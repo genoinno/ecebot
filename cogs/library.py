@@ -480,7 +480,8 @@ class Library(commands.Cog):
     @commands.has_role(LIBRARIAN_ROLE)
     async def backup(self, ctx: commands.Context):
         timestamp = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
-        f = rf"backups\{timestamp}.sql"
+        os.makedirs("backups", exist_ok=True)
+        f = os.path.join("backups", f"{timestamp}.sql")
 
         db_url = os.environ.get('DATABASE_URL', '')
         # Strip the asyncpg-specific parameters - pg_dump uses libpq format
@@ -489,17 +490,32 @@ class Library(commands.Cog):
         cmd = ["pg_dump", "--no-password", "--clean", "--if-exists", pg_url]
 
         try:
-            with open(f, "w", encoding="utf-8") as output_file:
-                subprocess.run(cmd, stdout=output_file, check=True)
-            print("Database backup successfully created!")
-            await ctx.author.send(file=discord.File(f))
-            await ctx.send("I have sent a backup for today's current date in your DM!")
+            async with ctx.typing():
+                with open(f, "w", encoding="utf-8") as output_file:
+                    proc = await asyncio.create_subprocess_exec(
+                        *cmd,
+                        stdout=output_file,
+                        stderr=asyncio.subprocess.PIPE
+                    )
+                    _, stderr = await proc.communicate()
 
-        except subprocess.CalledProcessError as e:
-            print(f"Error during backup execution: {e}")
-            await ctx.send(f"❌ Backup failed. Make sure `pg_dump` is installed and accessible in PATH.")
+                if proc.returncode != 0:
+                    err_msg = stderr.decode(errors="replace").strip() if stderr else "Unknown error"
+                    print(f"Error during backup execution: {err_msg}")
+                    return await ctx.send(f"❌ Backup failed: `{err_msg}`")
+
+                print("Database backup successfully created!")
+                try:
+                    await ctx.author.send(file=discord.File(f))
+                    await ctx.send("I have sent a backup for today's current date in your DM!")
+                except discord.Forbidden:
+                    await ctx.send("Database backup was created, but I couldn't DM you! Please enable direct messages from server members.")
+
         except FileNotFoundError:
             await ctx.send("❌ `pg_dump` not found. Please install PostgreSQL client tools to enable backups.")
+        except Exception as e:
+            print(f"Unexpected error during backup: {e}")
+            await ctx.send(f"❌ An unexpected error occurred: `{e}`")
         
 async def setup(bot):
     await bot.add_cog(Library(bot))
